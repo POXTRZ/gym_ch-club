@@ -1,0 +1,29 @@
+{
+  "name": "gym-backend-microservices",
+  "version": "1.0.0",
+  "description": "Sistema de microservicios para gestión de gimnasio",
+  "private": true,
+  "scripts": {
+    "install:all": "for service in auth-service user-service membership-service payment-service class-service booking-service trainer-service; do (cd $service && npm install); done",
+    "dev:auth": "cd auth-service && npm run dev",
+    "dev:user": "cd user-service && npm run dev",
+    "dev:membership": "cd membership-service && npm run dev",
+    "dev:payment": "cd payment-service && npm run dev",
+    "dev:class": "cd class-service && npm run dev",
+    "dev:booking": "cd booking-service && npm run dev",
+    "dev:trainer": "cd trainer-service && npm run dev",
+    "build:all": "for service in auth-service user-service membership-service payment-service class-service booking-service trainer-service; do (cd $service && npm run build); done",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "keywords": [
+    "microservices",
+    "gym",
+    "mongodb",
+    "typescript",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC"
+}
