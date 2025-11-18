@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body, param } from 'express-validator';
 import { validate } from '../../../shared/middleware/validation.middleware';
 import { authenticateToken } from '../../../shared/middleware/auth.middleware';
+import { apiLimiter } from '../../../shared/middleware/rateLimit.middleware';
 import {
   getPlans,
   createMembership,
@@ -17,7 +18,8 @@ const router = Router();
 // GET /api/memberships/plans - Planes disponibles (público)
 router.get('/plans', getPlans);
 
-// Las siguientes rutas requieren autenticación
+// Las siguientes rutas requieren autenticación y rate limiting
+router.use(apiLimiter);
 router.use(authenticateToken);
 
 // POST /api/memberships - Crear membresía

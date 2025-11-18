@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body, query } from 'express-validator';
 import { validate } from '../../../shared/middleware/validation.middleware';
 import { authenticateToken, authorizeRoles } from '../../../shared/middleware/auth.middleware';
+import { apiLimiter } from '../../../shared/middleware/rateLimit.middleware';
 import {
   getAllUsers,
   getUserById,
@@ -13,7 +14,8 @@ import {
 
 const router = Router();
 
-// Todas las rutas requieren autenticación
+// Todas las rutas requieren autenticación y rate limiting
+router.use(apiLimiter);
 router.use(authenticateToken);
 
 // GET /api/users - Listar usuarios (admin only)

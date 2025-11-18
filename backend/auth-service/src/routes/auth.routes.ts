@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { validate } from '../../../shared/middleware/validation.middleware';
 import { authenticateToken } from '../../../shared/middleware/auth.middleware';
-import rateLimit from 'express-rate-limit';
+import { apiLimiter, authLimiter } from '../../../shared/middleware/rateLimit.middleware';
 import {
   register,
   login,
@@ -12,13 +12,6 @@ import {
 } from '../controllers/auth.controller';
 
 const router = Router();
-
-// Rate limiter para auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // 5 intentos
-  message: 'Demasiados intentos, intente de nuevo más tarde',
-});
 
 // POST /api/auth/register - Registro de usuarios
 router.post(
@@ -71,10 +64,10 @@ router.post(
 );
 
 // GET /api/auth/me - Usuario actual
-router.get('/me', authenticateToken, getCurrentUser);
+router.get('/me', apiLimiter, authenticateToken, getCurrentUser);
 
 // POST /api/auth/logout - Cerrar sesión
-router.post('/logout', authenticateToken, logout);
+router.post('/logout', apiLimiter, authenticateToken, logout);
 
 // POST /api/auth/refresh - Refresh token
 router.post(

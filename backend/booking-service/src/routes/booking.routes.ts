@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { validate } from '../../../shared/middleware/validation.middleware';
 import { authenticateToken } from '../../../shared/middleware/auth.middleware';
+import { apiLimiter } from '../../../shared/middleware/rateLimit.middleware';
 import {
   createBooking,
   getBookingById,
@@ -13,7 +14,8 @@ import {
 
 const router = Router();
 
-// Todas las rutas requieren autenticación
+// Todas las rutas requieren autenticación y rate limiting
+router.use(apiLimiter);
 router.use(authenticateToken);
 
 // POST /api/bookings - Reservar clase

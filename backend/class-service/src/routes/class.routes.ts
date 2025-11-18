@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { validate } from '../../../shared/middleware/validation.middleware';
 import { authenticateToken, authorizeRoles } from '../../../shared/middleware/auth.middleware';
+import { apiLimiter } from '../../../shared/middleware/rateLimit.middleware';
 import {
   getAllClasses,
   createClass,
@@ -23,7 +24,8 @@ router.get('/schedule', getWeeklySchedule);
 // GET /api/classes/trainer/:trainerId - Clases por entrenador
 router.get('/trainer/:trainerId', getTrainerClasses);
 
-// Las siguientes rutas requieren autenticación
+// Las siguientes rutas requieren autenticación y rate limiting
+router.use(apiLimiter);
 router.use(authenticateToken);
 
 // POST /api/classes - Crear clase (admin/trainer)

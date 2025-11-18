@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { validate } from '../../../shared/middleware/validation.middleware';
 import { authenticateToken, authorizeRoles } from '../../../shared/middleware/auth.middleware';
+import { apiLimiter } from '../../../shared/middleware/rateLimit.middleware';
 import {
   processPayment,
   getPaymentById,
@@ -16,7 +17,8 @@ const router = Router();
 // POST /api/payments/webhook - Webhook (público)
 router.post('/webhook', handleWebhook);
 
-// Las siguientes rutas requieren autenticación
+// Las siguientes rutas requieren autenticación y rate limiting
+router.use(apiLimiter);
 router.use(authenticateToken);
 
 // POST /api/payments - Procesar pago
