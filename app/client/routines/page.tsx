@@ -5,76 +5,19 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { CHNavbar } from '@/components/ch-navbar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Dumbbell, Clock, Repeat, Weight } from 'lucide-react'
-
-interface Exercise {
-  id: string
-  name: string
-  muscleGroup: string
-  sets: number
-  reps: string
-  weight?: string
-  rest: number
-}
-
-interface Routine {
-  id: string
-  day: string
-  name: string
-  trainerId: string
-  trainerName: string
-  exercises: Exercise[]
-}
+import { Dumbbell, Calendar, User, ChevronDown, ChevronUp } from 'lucide-react'
+import { toast } from 'sonner'
+import type { Routine, Exercise } from '@/lib/types'
 
 export default function ClientRoutinesPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
-  const [routines] = useState<Routine[]>([
-    {
-      id: '1',
-      day: 'Lunes',
-      name: 'Pecho y Tríceps',
-      trainerId: '3',
-      trainerName: 'Carlos Hernández',
-      exercises: [
-        { id: '1', name: 'Press de Banca', muscleGroup: 'Pecho', sets: 4, reps: '8-10', weight: '60kg', rest: 90 },
-        { id: '2', name: 'Press Inclinado', muscleGroup: 'Pecho', sets: 3, reps: '10-12', weight: '45kg', rest: 60 },
-        { id: '3', name: 'Aperturas con Mancuernas', muscleGroup: 'Pecho', sets: 3, reps: '12-15', weight: '15kg', rest: 60 },
-        { id: '4', name: 'Extensiones de Tríceps', muscleGroup: 'Tríceps', sets: 3, reps: '12-15', rest: 60 },
-        { id: '5', name: 'Fondos en Paralelas', muscleGroup: 'Tríceps', sets: 3, reps: '8-10', rest: 90 },
-      ],
-    },
-    {
-      id: '2',
-      day: 'Miércoles',
-      name: 'Espalda y Bíceps',
-      trainerId: '3',
-      trainerName: 'Carlos Hernández',
-      exercises: [
-        { id: '6', name: 'Peso Muerto', muscleGroup: 'Espalda', sets: 4, reps: '6-8', weight: '80kg', rest: 120 },
-        { id: '7', name: 'Dominadas', muscleGroup: 'Espalda', sets: 4, reps: '8-10', rest: 90 },
-        { id: '8', name: 'Remo con Barra', muscleGroup: 'Espalda', sets: 3, reps: '10-12', weight: '50kg', rest: 60 },
-        { id: '9', name: 'Curl con Barra', muscleGroup: 'Bíceps', sets: 3, reps: '10-12', weight: '25kg', rest: 60 },
-        { id: '10', name: 'Curl Martillo', muscleGroup: 'Bíceps', sets: 3, reps: '12-15', weight: '12kg', rest: 45 },
-      ],
-    },
-    {
-      id: '3',
-      day: 'Viernes',
-      name: 'Piernas y Hombros',
-      trainerId: '3',
-      trainerName: 'Carlos Hernández',
-      exercises: [
-        { id: '11', name: 'Sentadilla', muscleGroup: 'Piernas', sets: 4, reps: '8-10', weight: '70kg', rest: 120 },
-        { id: '12', name: 'Prensa de Pierna', muscleGroup: 'Piernas', sets: 3, reps: '12-15', weight: '100kg', rest: 90 },
-        { id: '13', name: 'Peso Muerto Rumano', muscleGroup: 'Piernas', sets: 3, reps: '10-12', weight: '60kg', rest: 90 },
-        { id: '14', name: 'Press Militar', muscleGroup: 'Hombros', sets: 4, reps: '8-10', weight: '40kg', rest: 90 },
-        { id: '15', name: 'Elevaciones Laterales', muscleGroup: 'Hombros', sets: 3, reps: '12-15', weight: '10kg', rest: 60 },
-      ],
-    },
-  ])
+  const [routines, setRoutines] = useState<Routine[]>([])
+  const [loading, setLoading] = useState(true)
+  const [expandedRoutine, setExpandedRoutine] = useState<string | null>(null)
+  const [exerciseImages, setExerciseImages] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'CLIENT')) {
@@ -82,12 +25,67 @@ export default function ClientRoutinesPage() {
     }
   }, [user, isLoading, router])
 
-  if (isLoading || !user) {
+  useEffect(() => {
+    if (user) {
+      fetchRoutines()
+      fetchExerciseImages()
+    }
+  }, [user])
+
+  const fetchExerciseImages = async () => {
+    try {
+      const response = await fetch('/api/exercises')
+      const data = await response.json()
+      if (data.success && data.data) {
+        // Crear un mapa de nombre -> imageUrl
+        const imageMap: Record<string, string> = {}
+        data.data.forEach((ex: any) => {
+          if (ex.imageUrl) {
+            imageMap[ex.name] = ex.imageUrl
+          }
+        })
+        setExerciseImages(imageMap)
+      }
+    } catch (error) {
+      console.error('Error fetching exercise images:', error)
+    }
+  }
+
+  const fetchRoutines = async () => {
+    try {
+      const response = await fetch(`/api/routines?userId=${user?.email}`)
+      const data = await response.json()
+      if (data.success) {
+        setRoutines(data.data)
+      } else {
+        toast.error('Error al cargar rutinas')
+      }
+    } catch (error) {
+      toast.error('Error al cargar rutinas')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (isLoading || !user || loading) {
     return (
       <div className="min-h-screen ch-gradient flex items-center justify-center">
         <div className="h-16 w-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     )
+  }
+
+  const getDayName = (day: string) => {
+    const days: Record<string, string> = {
+      'MONDAY': 'Lunes',
+      'TUESDAY': 'Martes',
+      'WEDNESDAY': 'Miércoles',
+      'THURSDAY': 'Jueves',
+      'FRIDAY': 'Viernes',
+      'SATURDAY': 'Sábado',
+      'SUNDAY': 'Domingo'
+    }
+    return days[day] || day
   }
 
   return (
@@ -100,92 +98,164 @@ export default function ClientRoutinesPage() {
             Mis Rutinas
           </h1>
           <p className="text-muted-foreground">
-            Plan de entrenamiento asignado por tu entrenador
+            Revisa y sigue tus rutinas de entrenamiento personalizadas
           </p>
         </div>
 
-        <Tabs defaultValue="lunes" className="space-y-6">
-          <TabsList className="bg-muted border border-border">
+        {routines.length === 0 ? (
+          <Card className="bg-card border-border">
+            <CardContent className="py-16 text-center">
+              <Dumbbell className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                No tienes rutinas asignadas
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                Consulta con tu entrenador para obtener una rutina personalizada
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-6">
             {routines.map((routine) => (
-              <TabsTrigger key={routine.id} value={routine.day.toLowerCase()}>
-                {routine.day}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {routines.map((routine) => (
-            <TabsContent key={routine.id} value={routine.day.toLowerCase()} className="space-y-6">
-              <Card className="bg-card border-border">
+              <Card key={routine._id?.toString()} className="bg-card border-border">
                 <CardHeader>
                   <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-2xl text-foreground">{routine.name}</CardTitle>
-                      <CardDescription className="mt-2 text-muted-foreground">
-                        Asignado por: {routine.trainerName}
+                    <div className="space-y-1">
+                      <CardTitle className="text-foreground flex items-center gap-2">
+                        <Dumbbell className="h-5 w-5 text-primary" />
+                        {routine.name}
+                      </CardTitle>
+                      <CardDescription className="text-muted-foreground">
+                        {routine.description}
                       </CardDescription>
                     </div>
-                    <Badge className="bg-primary/20 text-primary border-primary/30">
-                      {routine.exercises.length} ejercicios
+                    <Badge variant="outline" className="border-primary text-primary">
+                      {routine.days.length} días
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {routine.exercises.map((exercise, index) => (
-                    <Card key={exercise.id} className="bg-muted/50 border-border">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-4">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
-                            <span className="text-lg font-bold text-primary">{index + 1}</span>
+                  <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      <span>
+                        {routine.trainerName ? `Entrenador: ${routine.trainerName}` : 'Entrenador asignado'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      <span>
+                        Creada el {new Date(routine.createdAt).toLocaleDateString('es-MX')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-between"
+                    onClick={() => setExpandedRoutine(
+                      expandedRoutine === routine._id?.toString() ? null : routine._id?.toString() || null
+                    )}
+                  >
+                    <span>Ver rutina completa</span>
+                    {expandedRoutine === routine._id?.toString() ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+
+                  {expandedRoutine === routine._id?.toString() && (
+                    <div className="space-y-6 pt-4">
+                      {routine.days.map((day, dayIndex) => (
+                        <div key={dayIndex} className="space-y-3">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Badge className="bg-primary/10 text-primary border-primary/30">
+                              {day.dayName}
+                            </Badge>
+                            {day.notes && (
+                              <p className="text-sm text-muted-foreground">
+                                {day.notes}
+                              </p>
+                            )}
                           </div>
-                          <div className="flex-1 space-y-3">
-                            <div>
-                              <h3 className="font-semibold text-foreground text-lg">{exercise.name}</h3>
-                              <Badge variant="outline" className="mt-1 text-xs">
-                                {exercise.muscleGroup}
-                              </Badge>
-                            </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                              <div className="flex items-center gap-2">
-                                <Dumbbell className="h-4 w-4 text-primary" />
-                                <div>
-                                  <p className="text-xs text-muted-foreground">Series</p>
-                                  <p className="text-sm font-semibold text-foreground">{exercise.sets}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Repeat className="h-4 w-4 text-primary" />
-                                <div>
-                                  <p className="text-xs text-muted-foreground">Reps</p>
-                                  <p className="text-sm font-semibold text-foreground">{exercise.reps}</p>
-                                </div>
-                              </div>
-                              {exercise.weight && (
-                                <div className="flex items-center gap-2">
-                                  <Weight className="h-4 w-4 text-primary" />
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">Peso</p>
-                                    <p className="text-sm font-semibold text-foreground">{exercise.weight}</p>
+                          
+                          <div className="space-y-2">
+                            {day.exercises.map((exercise, exerciseIndex) => (
+                              <div
+                                key={exerciseIndex}
+                                className="p-4 rounded-lg bg-muted/50 border border-border"
+                              >
+                                <div className="flex gap-4 mb-3">
+                                  {/* Imagen del ejercicio */}
+                                  {exerciseImages[exercise.name] ? (
+                                    <img 
+                                      src={exerciseImages[exercise.name]} 
+                                      alt={exercise.name}
+                                      className="w-24 h-24 object-cover rounded-lg flex-shrink-0"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none'
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                                      <Dumbbell className="h-8 w-8 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                  
+                                  {/* Información del ejercicio */}
+                                  <div className="flex-1">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div>
+                                        <h4 className="font-semibold text-foreground mb-1">
+                                          {exerciseIndex + 1}. {exercise.name}
+                                        </h4>
+                                        {exercise.equipment && (
+                                          <p className="text-xs text-muted-foreground mb-1">
+                                            📍 {exercise.equipment}
+                                          </p>
+                                        )}
+                                        {exercise.notes && (
+                                          <p className="text-sm text-muted-foreground">
+                                            {exercise.notes}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-4 text-sm mt-3">
+                                      <div className="space-y-1">
+                                        <p className="text-muted-foreground">Series</p>
+                                        <p className="font-semibold text-foreground">
+                                          {exercise.sets}
+                                        </p>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <p className="text-muted-foreground">Repeticiones</p>
+                                        <p className="font-semibold text-foreground">
+                                          {exercise.reps}
+                                        </p>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <p className="text-muted-foreground">Descanso</p>
+                                        <p className="font-semibold text-foreground">
+                                          {exercise.rest}
+                                        </p>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
-                              )}
-                              <div className="flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-primary" />
-                                <div>
-                                  <p className="text-xs text-muted-foreground">Descanso</p>
-                                  <p className="text-sm font-semibold text-foreground">{exercise.rest}s</p>
-                                </div>
                               </div>
-                            </div>
+                            ))}
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-            </TabsContent>
-          ))}
-        </Tabs>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   )

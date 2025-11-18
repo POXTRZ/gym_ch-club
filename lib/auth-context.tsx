@@ -36,59 +36,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string) => {
-    // Simulated login - replace with actual API call
-    console.log('[v0] Login attempt:', email)
-    
-    // Demo users for testing
-    const demoUsers: Record<string, User> = {
-      'client@chclub.com': {
-        id: '1',
-        email: 'client@chclub.com',
-        name: 'Juan Pérez',
-        role: 'CLIENT',
-      },
-      'employee@chclub.com': {
-        id: '2',
-        email: 'employee@chclub.com',
-        name: 'María García',
-        role: 'EMPLOYEE',
-      },
-      'trainer@chclub.com': {
-        id: '3',
-        email: 'trainer@chclub.com',
-        name: 'Carlos Hernández',
-        role: 'TRAINER',
-      },
-      'admin@chclub.com': {
-        id: '4',
-        email: 'admin@chclub.com',
-        name: 'Ana Martínez',
-        role: 'ADMIN',
-      },
-    }
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
 
-    const foundUser = demoUsers[email]
-    if (foundUser && password === 'password123') {
-      setUser(foundUser)
-      localStorage.setItem('ch-club-user', JSON.stringify(foundUser))
-    } else {
-      throw new Error('Credenciales inválidas')
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Error al iniciar sesión')
+      }
+
+      const user: User = data.user
+      setUser(user)
+      localStorage.setItem('ch-club-user', JSON.stringify(user))
+    } catch (error) {
+      console.error('Login error:', error)
+      throw error
     }
   }
 
   const register = async (email: string, password: string, name: string, role: UserRole) => {
-    // Simulated registration - replace with actual API call
-    console.log('[v0] Registration attempt:', email, name, role)
-    
-    const newUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      email,
-      name,
-      role,
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name, role }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Error al registrarse')
+      }
+
+      const user: User = data.user
+      setUser(user)
+      localStorage.setItem('ch-club-user', JSON.stringify(user))
+    } catch (error) {
+      console.error('Register error:', error)
+      throw error
     }
-    
-    setUser(newUser)
-    localStorage.setItem('ch-club-user', JSON.stringify(newUser))
   }
 
   const logout = () => {

@@ -8,26 +8,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { TrendingUp, TrendingDown, Activity, Save } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { TrendingUp, TrendingDown, Minus, Save } from 'lucide-react'
+import { toast } from 'sonner'
+import type { PhysicalProgress } from '@/lib/types'
 
 export default function ClientProgressPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
+  const [progressData, setProgressData] = useState<PhysicalProgress[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  
   const [formData, setFormData] = useState({
-    weight: '75',
-    height: '175',
-    chest: '95',
-    waist: '80',
-    hips: '95',
-    arms: '35',
-    legs: '55',
+    weight: '',
+    bodyFat: '',
+    muscleMass: '',
+    chest: '',
+    waist: '',
+    hips: '',
+    arms: '',
+    thighs: '',
   })
-
-  const [progressHistory] = useState([
-    { date: '2025-01-01', weight: 78, chest: 98, waist: 84 },
-    { date: '2025-01-08', weight: 77, chest: 97, waist: 82 },
-    { date: '2025-01-15', weight: 75, chest: 95, waist: 80 },
-  ])
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'CLIENT')) {
@@ -35,7 +38,77 @@ export default function ClientProgressPage() {
     }
   }, [user, isLoading, router])
 
-  if (isLoading || !user) {
+  useEffect(() => {
+    if (user) {
+      fetchProgressData()
+    }
+  }, [user])
+
+  const fetchProgressData = async () => {
+    try {
+      const response = await fetch(`/api/progress?userId=${user?.email}`)
+      const data = await response.json()
+      if (data.success) {
+        setProgressData(data.data.sort((a: PhysicalProgress, b: PhysicalProgress) => 
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        ))
+      }
+    } catch (error) {
+      toast.error('Error al cargar datos de progreso')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+
+    try {
+      const response = await fetch('/api/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.email,
+          weight: parseFloat(formData.weight) || undefined,
+          bodyFat: parseFloat(formData.bodyFat) || undefined,
+          muscleMass: parseFloat(formData.muscleMass) || undefined,
+          measurements: {
+            chest: parseFloat(formData.chest) || undefined,
+            waist: parseFloat(formData.waist) || undefined,
+            hips: parseFloat(formData.hips) || undefined,
+            arms: parseFloat(formData.arms) || undefined,
+            thighs: parseFloat(formData.thighs) || undefined,
+          },
+          date: new Date(),
+        }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        toast.success('Progreso registrado exitosamente')
+        setFormData({
+          weight: '',
+          bodyFat: '',
+          muscleMass: '',
+          chest: '',
+          waist: '',
+          hips: '',
+          arms: '',
+          thighs: '',
+        })
+        fetchProgressData()
+      } else {
+        toast.error(data.error || 'Error al registrar progreso')
+      }
+    } catch (error) {
+      toast.error('Error al guardar los datos')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (isLoading || !user || loading) {
     return (
       <div className="min-h-screen ch-gradient flex items-center justify-center">
         <div className="h-16 w-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -43,15 +116,25 @@ export default function ClientProgressPage() {
     )
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log('[v0] Updating progress:', formData)
-    // TODO: Implement API call
-    alert('Progreso actualizado exitosamente')
-  }
+  // Preparar datos para la gráfica
+  const chartData = progressData.map(entry => ({
+    date: new Date(entry.date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }),
+    peso: entry.weight,
+    grasaCorporal: entry.bodyFat,
+    masaMuscular: entry.muscleMass,
+  }))
 
-  const weightChange = progressHistory[0].weight - progressHistory[progressHistory.length - 1].weight
-  const isWeightDown = weightChange > 0
+  // Calcular estadísticas
+  const latestEntry = progressData[progressData.length - 1]
+  const firstEntry = progressData[0]
+  
+  const weightChange = latestEntry && firstEntry
+    ? latestEntry.weight - firstEntry.weight
+    : 0
+  
+  const bodyFatChange = latestEntry && firstEntry && latestEntry.bodyFat && firstEntry.bodyFat
+    ? latestEntry.bodyFat - firstEntry.bodyFat
+    : 0
 
   return (
     <div className="min-h-screen ch-gradient">
@@ -63,182 +146,297 @@ export default function ClientProgressPage() {
             Mi Progreso
           </h1>
           <p className="text-muted-foreground">
-            Registra y visualiza tu evolución física
+            Registra y monitorea tu evolución física
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Progress Summary */}
-          <div className="lg:col-span-1 space-y-6">
+        {/* Estadísticas Rápidas */}
+        {latestEntry && (
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
             <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="text-foreground">Resumen</CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  Cambios en las últimas 2 semanas
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2">
-                    {isWeightDown ? (
-                      <TrendingDown className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <TrendingUp className="h-5 w-5 text-red-500" />
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Peso Actual</p>
+                    <p className="text-3xl font-bold text-foreground">{latestEntry.weight} kg</p>
+                    {weightChange !== 0 && (
+                      <div className={`flex items-center gap-1 mt-2 text-sm ${weightChange > 0 ? 'text-blue-500' : 'text-green-500'}`}>
+                        {weightChange > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                        <span>{Math.abs(weightChange).toFixed(1)} kg desde el inicio</span>
+                      </div>
                     )}
-                    <span className="text-sm text-muted-foreground">Peso</span>
                   </div>
-                  <span className={`font-semibold ${isWeightDown ? 'text-green-500' : 'text-red-500'}`}>
-                    {isWeightDown ? '-' : '+'}{Math.abs(weightChange)} kg
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-primary" />
-                    <span className="text-sm text-muted-foreground">Check-ins</span>
-                  </div>
-                  <span className="font-semibold text-foreground">18 este mes</span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="text-foreground">Historial</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {progressHistory.map((entry, index) => (
-                  <div key={index} className="pb-3 border-b border-border last:border-0">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      {new Date(entry.date).toLocaleDateString('es-MX')}
-                    </p>
-                    <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Peso:</span>{' '}
-                        <span className="font-medium text-foreground">{entry.weight}kg</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Pecho:</span>{' '}
-                        <span className="font-medium text-foreground">{entry.chest}cm</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Cintura:</span>{' '}
-                        <span className="font-medium text-foreground">{entry.waist}cm</span>
-                      </div>
+            {latestEntry.bodyFat && (
+              <Card className="bg-card border-border">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Grasa Corporal</p>
+                      <p className="text-3xl font-bold text-foreground">{latestEntry.bodyFat}%</p>
+                      {bodyFatChange !== 0 && (
+                        <div className={`flex items-center gap-1 mt-2 text-sm ${bodyFatChange < 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {bodyFatChange < 0 ? <TrendingDown className="h-4 w-4" /> : <TrendingUp className="h-4 w-4" />}
+                          <span>{Math.abs(bodyFatChange).toFixed(1)}% desde el inicio</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {latestEntry.muscleMass && (
+              <Card className="bg-card border-border">
+                <CardContent className="pt-6">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Masa Muscular</p>
+                    <p className="text-3xl font-bold text-foreground">{latestEntry.muscleMass} kg</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Gráfica de Progreso */}
+          <Card className="bg-card border-border lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-foreground">Evolución del Peso</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Seguimiento de tu progreso en el tiempo
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="hsl(var(--muted-foreground))"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                      }}
+                    />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="peso" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={2}
+                      name="Peso (kg)"
+                    />
+                    {chartData.some(d => d.grasaCorporal) && (
+                      <Line 
+                        type="monotone" 
+                        dataKey="grasaCorporal" 
+                        stroke="hsl(var(--destructive))" 
+                        strokeWidth={2}
+                        name="Grasa (%)"
+                      />
+                    )}
+                    {chartData.some(d => d.masaMuscular) && (
+                      <Line 
+                        type="monotone" 
+                        dataKey="masaMuscular" 
+                        stroke="hsl(var(--chart-2))" 
+                        strokeWidth={2}
+                        name="Músculo (kg)"
+                      />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No hay datos suficientes para mostrar la gráfica
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Formulario de Nuevo Registro */}
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-foreground">Registrar Mediciones</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Añade tus mediciones actuales
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="weight">Peso (kg)</Label>
+                  <Input
+                    id="weight"
+                    type="number"
+                    step="0.1"
+                    value={formData.weight}
+                    onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                    placeholder="70.5"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bodyFat">Grasa Corporal (%)</Label>
+                  <Input
+                    id="bodyFat"
+                    type="number"
+                    step="0.1"
+                    value={formData.bodyFat}
+                    onChange={(e) => setFormData({ ...formData, bodyFat: e.target.value })}
+                    placeholder="15.0"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="muscleMass">Masa Muscular (kg)</Label>
+                  <Input
+                    id="muscleMass"
+                    type="number"
+                    step="0.1"
+                    value={formData.muscleMass}
+                    onChange={(e) => setFormData({ ...formData, muscleMass: e.target.value })}
+                    placeholder="55.0"
+                  />
+                </div>
+
+                <div className="pt-3 border-t border-border">
+                  <p className="text-sm font-medium text-foreground mb-3">Medidas (cm)</p>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="chest" className="text-xs">Pecho</Label>
+                      <Input
+                        id="chest"
+                        type="number"
+                        step="0.1"
+                        value={formData.chest}
+                        onChange={(e) => setFormData({ ...formData, chest: e.target.value })}
+                        placeholder="95"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="waist" className="text-xs">Cintura</Label>
+                      <Input
+                        id="waist"
+                        type="number"
+                        step="0.1"
+                        value={formData.waist}
+                        onChange={(e) => setFormData({ ...formData, waist: e.target.value })}
+                        placeholder="80"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="hips" className="text-xs">Cadera</Label>
+                      <Input
+                        id="hips"
+                        type="number"
+                        step="0.1"
+                        value={formData.hips}
+                        onChange={(e) => setFormData({ ...formData, hips: e.target.value })}
+                        placeholder="95"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="arms" className="text-xs">Brazos</Label>
+                      <Input
+                        id="arms"
+                        type="number"
+                        step="0.1"
+                        value={formData.arms}
+                        onChange={(e) => setFormData({ ...formData, arms: e.target.value })}
+                        placeholder="35"
+                      />
+                    </div>
+
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="thighs" className="text-xs">Piernas</Label>
+                      <Input
+                        id="thighs"
+                        type="number"
+                        step="0.1"
+                        value={formData.thighs}
+                        onChange={(e) => setFormData({ ...formData, thighs: e.target.value })}
+                        placeholder="55"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full ch-red-gradient text-white"
+                  disabled={saving || !formData.weight}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {saving ? 'Guardando...' : 'Guardar Progreso'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Historial de Mediciones */}
+        {progressData.length > 0 && (
+          <Card className="bg-card border-border mt-6">
+            <CardHeader>
+              <CardTitle className="text-foreground">Historial de Mediciones</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {progressData.slice().reverse().map((entry, index) => (
+                  <div
+                    key={index}
+                    className="p-4 rounded-lg bg-muted/50 border border-border"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-foreground">
+                        {new Date(entry.date).toLocaleDateString('es-MX', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </span>
+                      <Badge variant="outline">{entry.weight} kg</Badge>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-muted-foreground">
+                      {entry.bodyFat && (
+                        <div>Grasa: {entry.bodyFat}%</div>
+                      )}
+                      {entry.muscleMass && (
+                        <div>Músculo: {entry.muscleMass} kg</div>
+                      )}
+                      {entry.measurements?.chest && (
+                        <div>Pecho: {entry.measurements.chest} cm</div>
+                      )}
+                      {entry.measurements?.waist && (
+                        <div>Cintura: {entry.measurements.waist} cm</div>
+                      )}
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Update Form */}
-          <div className="lg:col-span-2">
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="text-foreground">Actualizar Medidas</CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  Ingresa tus medidas actuales para seguir tu progreso
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Basic Measurements */}
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="weight">Peso (kg)</Label>
-                      <Input
-                        id="weight"
-                        type="number"
-                        step="0.1"
-                        value={formData.weight}
-                        onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                        className="bg-input border-border"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="height">Altura (cm)</Label>
-                      <Input
-                        id="height"
-                        type="number"
-                        value={formData.height}
-                        onChange={(e) => setFormData({ ...formData, height: e.target.value })}
-                        className="bg-input border-border"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Body Measurements */}
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground mb-4">Medidas Corporales (cm)</h3>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="chest">Pecho</Label>
-                        <Input
-                          id="chest"
-                          type="number"
-                          step="0.1"
-                          value={formData.chest}
-                          onChange={(e) => setFormData({ ...formData, chest: e.target.value })}
-                          className="bg-input border-border"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="waist">Cintura</Label>
-                        <Input
-                          id="waist"
-                          type="number"
-                          step="0.1"
-                          value={formData.waist}
-                          onChange={(e) => setFormData({ ...formData, waist: e.target.value })}
-                          className="bg-input border-border"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="hips">Cadera</Label>
-                        <Input
-                          id="hips"
-                          type="number"
-                          step="0.1"
-                          value={formData.hips}
-                          onChange={(e) => setFormData({ ...formData, hips: e.target.value })}
-                          className="bg-input border-border"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="arms">Brazos</Label>
-                        <Input
-                          id="arms"
-                          type="number"
-                          step="0.1"
-                          value={formData.arms}
-                          onChange={(e) => setFormData({ ...formData, arms: e.target.value })}
-                          className="bg-input border-border"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="legs">Piernas</Label>
-                        <Input
-                          id="legs"
-                          type="number"
-                          step="0.1"
-                          value={formData.legs}
-                          onChange={(e) => setFormData({ ...formData, legs: e.target.value })}
-                          className="bg-input border-border"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button type="submit" className="w-full ch-red-gradient text-white font-semibold">
-                    <Save className="mr-2 h-4 w-4" />
-                    Guardar Progreso
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   )

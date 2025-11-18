@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
@@ -11,10 +11,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Users, DollarSign, TrendingUp, ShoppingBag, UserCheck, Activity, Calendar, Clock } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
+import type { DashboardStats } from '@/lib/types'
 
 export default function AdminDashboardPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'ADMIN')) {
@@ -22,36 +25,31 @@ export default function AdminDashboardPage() {
     }
   }, [user, isLoading, router])
 
-  if (isLoading || !user) {
+  useEffect(() => {
+    if (user && user.role === 'ADMIN') {
+      fetchStats()
+    }
+  }, [user])
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/stats')
+      const data = await response.json()
+      setStats(data)
+    } catch (error) {
+      console.error('Error al obtener estadísticas:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (isLoading || loading || !user || !stats) {
     return (
       <div className="min-h-screen ch-gradient flex items-center justify-center">
         <div className="h-16 w-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
-
-  const statsData = {
-    totalMembers: 245,
-    activeMembers: 198,
-    monthlyRevenue: 99000,
-    checkInsToday: 67,
-    productSales: 12500,
-    revenueGrowth: 12.5,
-    memberGrowth: 8.3,
-  }
-
-  const peakHours = [
-    { hour: '6AM - 8AM', percentage: 35, count: 42 },
-    { hour: '12PM - 2PM', percentage: 25, count: 30 },
-    { hour: '6PM - 9PM', percentage: 55, count: 66 },
-  ]
-
-  const recentActivities = [
-    { type: 'membership', description: 'Nueva membresía registrada - Juan Pérez', time: 'Hace 15 min' },
-    { type: 'sale', description: 'Venta de proteína - $450', time: 'Hace 1 hora' },
-    { type: 'staff', description: 'Check-in empleado - María García', time: 'Hace 2 horas' },
-    { type: 'renewal', description: 'Renovación de membresía - Carlos López', time: 'Hace 3 horas' },
-  ]
 
   return (
     <div className="min-h-screen ch-gradient">
@@ -76,27 +74,27 @@ export default function AdminDashboardPage() {
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatsCard
             title="Total Miembros"
-            value={statsData.totalMembers}
-            description={`${statsData.activeMembers} activos`}
+            value={stats.totalMembers}
+            description={`${stats.activeMembers} activos`}
             icon={Users}
-            trend={{ value: statsData.memberGrowth, isPositive: true }}
+            trend={{ value: stats.newMembersThisMonth > 0 ? 8.3 : 0, isPositive: true }}
           />
           <StatsCard
             title="Ingresos Mensuales"
-            value={`$${statsData.monthlyRevenue.toLocaleString()}`}
+            value={`$${stats.monthlyRevenue.toLocaleString()}`}
             description="Membresías + Productos"
             icon={DollarSign}
-            trend={{ value: statsData.revenueGrowth, isPositive: true }}
+            trend={{ value: stats.revenueGrowth, isPositive: stats.revenueGrowth > 0 }}
           />
           <StatsCard
             title="Check-ins Hoy"
-            value={statsData.checkInsToday}
+            value={stats.checkInsToday}
             description="Asistencias registradas"
             icon={UserCheck}
           />
           <StatsCard
-            title="Ventas de Productos"
-            value={`$${statsData.productSales.toLocaleString()}`}
+            title="Productos Vendidos"
+            value={stats.productSales}
             description="Este mes"
             icon={ShoppingBag}
           />
@@ -105,27 +103,36 @@ export default function AdminDashboardPage() {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Peak Hours */}
+            {/* Stats Summary */}
             <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="text-foreground flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-primary" />
-                  Horarios de Mayor Afluencia
+                  <Activity className="h-5 w-5 text-primary" />
+                  Resumen de Actividad
                 </CardTitle>
                 <CardDescription className="text-muted-foreground">
-                  Distribución de asistencia del día
+                  Estadísticas del mes actual
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {peakHours.map((hour, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-foreground">{hour.hour}</span>
-                      <span className="text-muted-foreground">{hour.count} personas</span>
-                    </div>
-                    <Progress value={hour.percentage} className="h-2" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Check-ins del Mes</p>
+                    <p className="text-2xl font-bold text-foreground">{stats.checkInsThisMonth}</p>
                   </div>
-                ))}
+                  <div>
+                    <p className="text-sm text-muted-foreground">Nuevos Miembros</p>
+                    <p className="text-2xl font-bold text-foreground">{stats.newMembersThisMonth}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Productos con Stock Bajo</p>
+                    <p className="text-2xl font-bold text-foreground">{stats.lowStockProducts}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Membresías Expiradas</p>
+                    <p className="text-2xl font-bold text-foreground">{stats.expiredMembers}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -137,15 +144,15 @@ export default function AdminDashboardPage() {
               <CardContent>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center p-4 rounded-lg bg-green-500/10 border border-green-500/30">
-                    <p className="text-3xl font-bold text-green-400">198</p>
+                    <p className="text-3xl font-bold text-green-400">{stats.activeMembers}</p>
                     <p className="text-sm text-muted-foreground mt-1">Activas</p>
                   </div>
                   <div className="text-center p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-                    <p className="text-3xl font-bold text-yellow-400">32</p>
-                    <p className="text-sm text-muted-foreground mt-1">Por Vencer</p>
+                    <p className="text-3xl font-bold text-yellow-400">{stats.newMembersThisMonth}</p>
+                    <p className="text-sm text-muted-foreground mt-1">Nuevas Este Mes</p>
                   </div>
                   <div className="text-center p-4 rounded-lg bg-red-500/10 border border-red-500/30">
-                    <p className="text-3xl font-bold text-red-400">15</p>
+                    <p className="text-3xl font-bold text-red-400">{stats.expiredMembers}</p>
                     <p className="text-sm text-muted-foreground mt-1">Vencidas</p>
                   </div>
                 </div>
@@ -159,10 +166,10 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent className="grid sm:grid-cols-3 gap-4">
                 <Button asChild variant="outline" className="h-auto py-6 border-border hover:border-primary">
-                  <Link href="/admin/members" className="flex flex-col items-center gap-2">
+                  <Link href="/admin/socios" className="flex flex-col items-center gap-2">
                     <Users className="h-6 w-6 text-primary" />
                     <div className="text-center">
-                      <div className="font-semibold text-foreground">Miembros</div>
+                      <div className="font-semibold text-foreground">Socios</div>
                       <div className="text-xs text-muted-foreground">Gestionar</div>
                     </div>
                   </Link>
@@ -197,15 +204,23 @@ export default function AdminDashboardPage() {
                 <CardTitle className="text-foreground">Actividad Reciente</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-start gap-3 pb-3 border-b border-border last:border-0">
-                    <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-foreground">{activity.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
+                {stats.recentActivities && stats.recentActivities.length > 0 ? (
+                  stats.recentActivities.map((activity: any, index: number) => (
+                    <div key={index} className="flex items-start gap-3 pb-3 border-b border-border last:border-0">
+                      <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground">{activity.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(activity.time).toLocaleString('es-ES')}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No hay actividades recientes
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -215,24 +230,27 @@ export default function AdminDashboardPage() {
                 <CardTitle className="text-foreground text-sm">Alertas del Sistema</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-start gap-2">
-                  <Badge variant="outline" className="border-yellow-500 text-yellow-500 flex-shrink-0">
-                    3
-                  </Badge>
-                  <p className="text-sm text-foreground">Productos con stock bajo</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Badge variant="outline" className="border-red-500 text-red-500 flex-shrink-0">
-                    15
-                  </Badge>
-                  <p className="text-sm text-foreground">Membresías vencidas requieren seguimiento</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Badge variant="outline" className="border-yellow-500 text-yellow-500 flex-shrink-0">
-                    32
-                  </Badge>
-                  <p className="text-sm text-foreground">Membresías por vencer en 7 días</p>
-                </div>
+                {stats.lowStockProducts > 0 && (
+                  <div className="flex items-start gap-2">
+                    <Badge variant="outline" className="border-yellow-500 text-yellow-500 flex-shrink-0">
+                      {stats.lowStockProducts}
+                    </Badge>
+                    <p className="text-sm text-foreground">Productos con stock bajo</p>
+                  </div>
+                )}
+                {stats.expiredMembers > 0 && (
+                  <div className="flex items-start gap-2">
+                    <Badge variant="outline" className="border-red-500 text-red-500 flex-shrink-0">
+                      {stats.expiredMembers}
+                    </Badge>
+                    <p className="text-sm text-foreground">Membresías vencidas requieren seguimiento</p>
+                  </div>
+                )}
+                {stats.lowStockProducts === 0 && stats.expiredMembers === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No hay alertas activas
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -244,24 +262,26 @@ export default function AdminDashboardPage() {
               <CardContent className="space-y-4">
                 <div>
                   <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-muted-foreground">Meta de Ingresos</span>
-                    <span className="font-semibold text-foreground">99%</span>
+                    <span className="text-muted-foreground">Check-ins del Mes</span>
+                    <span className="font-semibold text-foreground">{stats.checkInsThisMonth}</span>
                   </div>
-                  <Progress value={99} className="h-2" />
+                  <Progress value={Math.min(100, (stats.checkInsThisMonth / (stats.totalMembers * 15)) * 100)} className="h-2" />
                 </div>
                 <div>
                   <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-muted-foreground">Meta de Miembros</span>
-                    <span className="font-semibold text-foreground">82%</span>
+                    <span className="text-muted-foreground">Nuevos Miembros</span>
+                    <span className="font-semibold text-foreground">{stats.newMembersThisMonth}</span>
                   </div>
-                  <Progress value={82} className="h-2" />
+                  <Progress value={Math.min(100, (stats.newMembersThisMonth / 20) * 100)} className="h-2" />
                 </div>
                 <div>
                   <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-muted-foreground">Retención de Clientes</span>
-                    <span className="font-semibold text-foreground">94%</span>
+                    <span className="text-muted-foreground">Tasa de Retención</span>
+                    <span className="font-semibold text-foreground">
+                      {stats.totalMembers > 0 ? Math.round((stats.activeMembers / stats.totalMembers) * 100) : 0}%
+                    </span>
                   </div>
-                  <Progress value={94} className="h-2" />
+                  <Progress value={stats.totalMembers > 0 ? (stats.activeMembers / stats.totalMembers) * 100 : 0} className="h-2" />
                 </div>
               </CardContent>
             </Card>

@@ -89,13 +89,6 @@ export default function LoginPage() {
                 ¿Olvidaste tu contraseña?
               </Link>
             </div>
-
-            {/* Demo credentials hint */}
-            <Alert className="bg-muted/50 border-muted">
-              <AlertDescription className="text-xs text-muted-foreground">
-                <strong>Demo:</strong> Usa client@chclub.com, employee@chclub.com, trainer@chclub.com, o admin@chclub.com con contraseña "password123"
-              </AlertDescription>
-            </Alert>
           </CardContent>
           
           <CardFooter className="flex flex-col space-y-4">
