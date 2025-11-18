@@ -32,7 +32,7 @@ export class AuthService {
     return jwt.sign(
       { id: userId, email, role },
       this.jwtSecret,
-      { expiresIn: this.jwtExpiresIn }
+      { expiresIn: this.jwtExpiresIn } as jwt.SignOptions
     );
   }
 

@@ -39,7 +39,7 @@ class Database {
           this.isConnected = false;
         });
 
-        mongoose.connection.on('error', (err) => {
+        mongoose.connection.on('error', (err: Error) => {
           console.error('❌ Error en MongoDB:', err);
         });
 
