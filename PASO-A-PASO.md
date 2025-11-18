@@ -23,6 +23,8 @@ Tu app estará disponible en internet, accesible desde cualquier computadora, CO
 ### PASO 3️⃣: Agrega variables de entorno
 En la pantalla "Configure Project", en la sección "Environment Variables":
 
+⚠️ **IMPORTANTE:** Copia los nombres EXACTAMENTE como están. Solo LETRAS MAYÚSCULAS y guiones bajos (_).
+
 **Variable 1:**
 ```
 Nombre: MONGODB_URI
@@ -34,14 +36,10 @@ Click "Add"
 **Variable 2:**
 ```
 Nombre: NEXTAUTH_SECRET
-Valor: (copia una línea de abajo)
+Valor: 32U7n8K9mL2pQ1xW5vH6jF3dG4bN7cM0Ry8kP9wS2tZ
 Ambiente: Production
 ```
-
-Genera NEXTAUTH_SECRET (COPIAR UNA DE ESTAS - son ejemplos):
-- `32U7n8K9mL2pQ1xW5vH6jF3dG4bN7cM0Ry8kP9wS2tZ`
-- `X4jL9mP2nQ5rS8tU1vW3xY6zA0bC7dE9fG2hI5jK8`
-- O genéralo aquí: https://generate-secret.vercel.app/32 (copiar resultado)
+(Si el valor de arriba no te gusta, puedes generar otro aquí: https://generate-secret.vercel.app/32 - pero copia el resultado completo)
 
 Click "Add"
 
@@ -174,6 +172,28 @@ Con:
 ---
 
 ## 🆘 PROBLEMAS?
+
+**¿Aparece error: "The name contains invalid characters"?**
+
+Significa que escribiste mal el nombre de la variable. **Soluciones:**
+
+1. ❌ **NO escribas:**
+   - `MONGODB-URI` (guion medio, debe ser guion BAJO `_`)
+   - `mongodb_uri` (minúsculas, debe ser MAYÚSCULAS)
+   - `MongoDb_Uri` (mezcla de mayúsculas/minúsculas)
+   - `NEXT_PUBLIC-API_URL` (mezcla de guiones)
+
+2. ✅ **ESCRIBE EXACTAMENTE:**
+   - `MONGODB_URI` (todo mayúsculas, guion bajo)
+   - `NEXTAUTH_SECRET` (todo mayúsculas)
+   - `NEXTAUTH_URL` (todo mayúsculas)
+   - `NEXT_PUBLIC_API_URL` (todo mayúsculas, guion bajo)
+
+3. 💡 **TRUCO:** Copia y pega los nombres de arriba en lugar de escribirlos manualmente.
+
+4. 📋 **GUÍA COMPLETA:** Ver archivo `VERCEL-VARIABLES-EXACTO.md`
+
+---
 
 **¿La app no carga?**
 1. Espera 2-3 minutos más (puede tardar)
